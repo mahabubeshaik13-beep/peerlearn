@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeerLearn Live Meeting</title>
+    <link rel="stylesheet" href="../style.css">
+
+    <style>
+        .meeting-container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #meetingFrame {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 12px;
+            background: #e8e5ff;
+        }
+
+        .meeting-note {
+            margin: 15px 0;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>🎓 PeerLearn</h2>
+    <nav>
+        <a href="../index.html">Home</a>
+        <a href="listener.html">← Back to Sessions</a>
+    </nav>
+</header>
+
+   
+
+    <main class="meeting-container">
+        <h1>🎥 PeerLearn Live Meeting</h1>
+
+        <p class="meeting-note">
+            Allow camera and microphone access when your browser asks.
+            You can turn them on or off inside the meeting.
+        </p>
+
+        <div id="meetingStatus">
+            Preparing your meeting...
+        </div>
+
+        <div id="meetingArea"></div>
+    </main>
+
+    <script>
+        const meetingArea = document.getElementById("meetingArea");
+        const status = document.getElementById("meetingStatus");
+
+        const params = new URLSearchParams(window.location.search);
+        let room = params.get("room");
+
+        if (!room) {
+            room = "PeerLearnDemoRoom2026";
+        }
+
+        // Allow only safe characters in the room name.
+        room = room.replace(/[^a-zA-Z0-9_-]/g, "");
+
+        if (!room) {
+            room = "PeerLearnDemoRoom2026";
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://meet.jit.si/external_api.js";
+
+        script.onload = function () {
+            const api = new JitsiMeetExternalAPI("meet.jit.si", {
+                roomName: room,
+                parentNode: meetingArea,
+                width: "100%",
+                height: 600,
+                configOverwrite: {
+                    startWithAudioMuted: true,
+                    startWithVideoMuted: true
+                },
+                interfaceConfigOverwrite: {
+                    SHOW_JITSI_WATERMARK: false
+                }
+            });
+
+            status.textContent =
+                "Meeting ready! Camera and microphone start OFF.";
+
+        };
+
+        script.onerror = function () {
+            status.textContent =
+                "Unable to load the meeting. Please check your internet connection and try again.";
+        };
+
+        document.body.appendChild(script);
+    </script>
+
+</body>
+</html>
