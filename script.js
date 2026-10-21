@@ -18,8 +18,11 @@ const sessionList = document.getElementById("sessionList");
 
 async function startPeerLearn() {
     try {
-        if (!auth.currentUser) {
-            await signInAnonymously(auth);
+        await waitForAuth();
+
+if (!auth.currentUser) {
+    await signInAnonymously(auth);
+}
         }
 
         const user = auth.currentUser;
