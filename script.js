@@ -1,149 +1,208 @@
 
+import {
+    database,
+    auth,
+    signInAnonymously
+} from "./firebase.js";
+
+import {
+    ref,
+    set,
+    remove,
+    onValue
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
 const sessionForm = document.getElementById("sessionForm");
-
-if (sessionForm) {
-    sessionForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-       
-const ownerId = localStorage.getItem("peerlearnOwnerId") ||
-    crypto.randomUUID();
-
-localStorage.setItem("peerlearnOwnerId", ownerId);
-
-const session = {
-    id: Date.now(),
-    room: "PeerLearnRoom" + Date.now(),
-    ownerId: ownerId,
-    explainerName: document.getElementById("explainerName").value.trim(),
-
-            subject: document.getElementById("subject").value.trim(),
-            topic: document.getElementById("topic").value.trim(),
-            date: document.getElementById("sessionDate").value,
-            time: document.getElementById("sessionTime").value,
-            duration: document.getElementById("duration").value,
-            capacity: document.getElementById("capacity").value
-        };
-
-        const sessions = JSON.parse(
-            localStorage.getItem("peerlearnSessions") || "[]"
-        );
-
-        sessions.push(session);
-
-        localStorage.setItem(
-            "peerlearnSessions",
-            JSON.stringify(sessions)
-        );
-
-        document.getElementById("message").textContent =
-            "Session created successfully! 🎉";
-
-        sessionForm.reset();
-    });
-}
-
 const sessionList = document.getElementById("sessionList");
 
-if (sessionList) {
-    const sessions = JSON.parse(
-        localStorage.getItem("peerlearnSessions") || "[]"
-    );
-    
-const countElement = document.getElementById("sessionCount");
+async function startPeerLearn() {
+    try {
+        if (!auth.currentUser) {
+            await signInAnonymously(auth);
+        }
 
-if (countElement) {
-    countElement.textContent =
-        "Total available sessions: " + sessions.length;
-}
+        const user = auth.currentUser;
 
+        if (!user) {
+            throw new Error("Unable to sign in.");
+        }
 
-    sessionList.innerHTML = "";
+        // Create a new session in Firebase
+        if (sessionForm) {
+            sessionForm.addEventListener("submit", async function (event) {
+                event.preventDefault();
 
-    if (sessions.length === 0) {
-        sessionList.innerHTML =
-            "<p>No sessions available yet. Please check again later.</p>";
-    } else {
-        sessions.forEach(function (session) {
-            const card = document.createElement("div");
-            card.className = "card";
+                const sessionId = String(Date.now());
 
-            const title = document.createElement("h3");
-            title.textContent = "📚 " + session.subject;
+                const session = {
+                    id: sessionId,
+                    room: "PeerLearnRoom" + sessionId,
+                    ownerId: user.uid,
+                    explainerName:
+                        document.getElementById("explainerName").value.trim(),
+                    subject:
+                        document.getElementById("subject").value.trim(),
+                    topic:
+                        document.getElementById("topic").value.trim(),
+                    date:
+                        document.getElementById("sessionDate").value,
+                    time:
+                        document.getElementById("sessionTime").value,
+                    duration:
+                        document.getElementById("duration").value,
+                    capacity:
+                        document.getElementById("capacity").value
+                };
 
-            const details = [
-                "👩‍🏫 Explainer: " + session.explainerName,
-                "📖 Topic: " + session.topic,
-                "📅 Date: " + session.date,
-                "⏰ Time: " + session.time,
-                "⌛ Duration: " + session.duration + " minutes",
-                "👥 Maximum listeners: " + session.capacity
-            ];
+                const message = document.getElementById("message");
 
-            card.appendChild(title);
+                try {
+                    await set(
+                        ref(database, "sessions/" + sessionId),
+                        session
+                    );
 
-            details.forEach(function (detail) {
-                const paragraph = document.createElement("p");
-                paragraph.textContent = detail;
-                card.appendChild(paragraph);
+                    message.textContent =
+                        "Session created successfully! 🎉";
+
+                    sessionForm.reset();
+                } catch (error) {
+                    console.error(error);
+                    message.textContent =
+                        "Could not create session. Please try again.";
+                }
             });
-            
-const joinButton = document.createElement("button");
-joinButton.textContent = "🎥 Join Meeting";
-joinButton.className = "btn";
+        }
 
-joinButton.addEventListener("click", function () {
-    const roomName = session.room ||
-        ("PeerLearnRoom" + session.id);
+        // Listen for sessions shared through Firebase
+        if (sessionList) {
+            onValue(
+                ref(database, "sessions"),
+                function (snapshot) {
+                    sessionList.innerHTML = "";
 
-    window.location.href =
-        "meeting.html?room=" + encodeURIComponent(roomName);
-});
+                    const sessions = [];
 
-card.appendChild(joinButton);
+                    snapshot.forEach(function (childSnapshot) {
+                        sessions.push(childSnapshot.val());
+                    });
 
-const currentOwnerId = localStorage.getItem("peerlearnOwnerId");
+                    const countElement =
+                        document.getElementById("sessionCount");
 
-if (currentOwnerId && session.ownerId === currentOwnerId) {
-    const deleteButton = document.createElement("button");
-    deleteButton.textContent = "🗑️ Delete Session";
-    deleteButton.className = "btn";
-    deleteButton.style.backgroundColor = "#dc3545";
+                    if (countElement) {
+                        countElement.textContent =
+                            "Total available sessions: " + sessions.length;
+                    }
 
-    deleteButton.addEventListener("click", function () {
-        const confirmed = confirm(
-            "Ma, are you sure you want to delete this session?"
-        );
+                    if (sessions.length === 0) {
+                        sessionList.innerHTML =
+                            "<p>No sessions available yet. Please check again later.</p>";
+                        return;
+                    }
 
-        if (!confirmed) return;
+                    sessions.forEach(function (session) {
+                        const card = document.createElement("div");
+                        card.className = "card";
 
-        const savedSessions = JSON.parse(
-            localStorage.getItem("peerlearnSessions") || "[]"
-        );
+                        const title = document.createElement("h3");
+                        title.textContent = "📚 " + session.subject;
+                        card.appendChild(title);
 
-        
-const updatedSessions = savedSessions.filter(
-    function (item) {
-        return item.id !== session.id;
+                        const details = [
+                            "👩‍🏫 Explainer: " + session.explainerName,
+                            "📖 Topic: " + session.topic,
+                            "📅 Date: " + session.date,
+                            "⏰ Time: " + session.time,
+                            "⌛ Duration: " + session.duration + " minutes",
+                            "👥 Maximum listeners: " + session.capacity
+                        ];
+
+                        details.forEach(function (detail) {
+                            const paragraph = document.createElement("p");
+                            paragraph.textContent = detail;
+                            card.appendChild(paragraph);
+                        });
+
+                        const joinButton =
+                            document.createElement("button");
+
+                        joinButton.textContent = "🎥 Join Meeting";
+                        joinButton.className = "btn";
+
+                        joinButton.addEventListener("click", function () {
+                            const roomName = session.room ||
+                                ("PeerLearnRoom" + session.id);
+
+                            window.location.href =
+                                "meeting.html?room=" +
+                                encodeURIComponent(roomName);
+                        });
+
+                        card.appendChild(joinButton);
+
+                        // Only the session owner sees the delete button
+                        if (session.ownerId === user.uid) {
+                            const deleteButton =
+                                document.createElement("button");
+
+                            deleteButton.textContent = "🗑️ Delete Session";
+                            deleteButton.className = "btn";
+                            deleteButton.style.backgroundColor = "#dc3545";
+
+                            deleteButton.addEventListener(
+                                "click",
+                                async function () {
+                                    const confirmed = confirm(
+                                        "Ma, are you sure you want to delete this session?"
+                                    );
+
+                                    if (!confirmed) return;
+
+                                    try {
+                                        await remove(
+                                            ref(
+                                                database,
+                                                "sessions/" + session.id
+                                            )
+                                        );
+                                    } catch (error) {
+                                        console.error(error);
+                                        alert(
+                                            "Could not delete the session. Please try again."
+                                        );
+                                    }
+                                }
+                            );
+
+                            card.appendChild(deleteButton);
+                        }
+
+                        sessionList.appendChild(card);
+                    });
+                },
+                function (error) {
+                    console.error(error);
+                    sessionList.textContent =
+                        "Unable to load sessions. Please check your connection.";
+                }
+            );
+        }
+    } catch (error) {
+        console.error(error);
+
+        const message = document.getElementById("message");
+
+        if (message) {
+            message.textContent =
+                "Unable to connect to Firebase. Please try again.";
+        }
+
+        if (sessionList) {
+            sessionList.textContent =
+                "Unable to connect to Firebase. Please try again.";
+        }
     }
-);
-
-
-        localStorage.setItem(
-            "peerlearnSessions",
-            JSON.stringify(updatedSessions)
-        );
-
-        window.location.reload();
-    });
-
-    card.appendChild(deleteButton);
 }
 
-
-
-            sessionList.appendChild(card);
-        });
-    }
-}
-
+startPeerLearn();
