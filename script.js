@@ -2,7 +2,8 @@
 import {
     database,
     auth,
-    signInAnonymously
+    signInAnonymously,
+    waitForAuth
 } from "./firebase.js";
 
 import {
