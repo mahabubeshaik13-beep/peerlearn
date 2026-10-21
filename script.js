@@ -23,7 +23,6 @@ async function startPeerLearn() {
 if (!auth.currentUser) {
     await signInAnonymously(auth);
 }
-        }
 
         const user = auth.currentUser;
 
